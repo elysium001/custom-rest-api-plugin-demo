@@ -26,7 +26,20 @@ class Custom_Endpoint extends \WP_REST_Controller {
 			'methods'             => 'GET',
 			'callback'            => array( $this, 'get_items' ),
 			'permission_callback' => array( $this, 'get_items_permissions_check' ),
-			'args'                => self::prefix_get_endpoint_args(),
+			'args' => [
+				'limit' => [
+					'required' => true,
+					'type' => 'integer',
+					'validate_callback' => 'rest_validate_request_arg', // rest_validate_request_arg is a WordPress function that validates the request argument.
+					'sanitize_callback' => 'absint',
+				],
+				'type' => [
+					'required' => false,
+					'type' => 'string',
+					'validate_callback' => 'rest_validate_request_arg',
+					'sanitize_callback' => 'sanitize_text_field',
+				],
+			],
 		) );
 
 	}
@@ -40,7 +53,9 @@ class Custom_Endpoint extends \WP_REST_Controller {
 	public function get_items( $request ) {
 
 		// get limit argument from request.
-		$limit = $request->get_param( 'limit' );
+		$limit = $request->get_param('limit');
+		$type = $request->get_param('type');
+
 		$response = array();
 
 		// if limit is not set, set it to 10.
@@ -60,7 +75,12 @@ class Custom_Endpoint extends \WP_REST_Controller {
 			);
 		}
 
-		return new \WP_REST_Response( $response, 200 );
+		// Your custom logic here
+		return new \WP_REST_Response([
+			'limit' => $limit,
+			'type' => $type,
+			'response' => $response,
+		], 200);
 	}
 
 	/**
@@ -73,29 +93,4 @@ class Custom_Endpoint extends \WP_REST_Controller {
 		return true;
 	}
 
-	/**
-	 * Get the argument schema for this example endpoint.
-	 */
-	public static function prefix_get_endpoint_args() { 
-
-		return array(
-			'limit' => array(
-					'description'       => __( 'Limit the number of items returned.', 'custom-rest-api' ),
-					'type'              => 'integer',
-					'default'           => 10,
-					'sanitize_callback' => 'absint',
-					'validate_callback' => 'rest_validate_request_arg',
-				),
-		);
-	}
-
-	/**
-	 * Create item permissions check
-	 *
-	 * @param \WP_REST_Request $request Full data about the request.
-	 * @return bool|\WP_Error
-	 */
-	public function create_item_permissions_check( $request ) {
-		return true;
-	}
 }

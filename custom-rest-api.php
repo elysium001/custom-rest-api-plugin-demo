@@ -35,44 +35,57 @@ add_action(
 	} 
 );
 
-function validate_against_schema($data, $schema) {
-	foreach ($schema as $key => $properties) {
-		if (!isset($data[$key])) {
-			return false;
-		}
+function validate_and_log( \WP_REST_Request $request = null) {
 
-		// Check if the type of the data is the same as the schema.
-		if (gettype($data[$key]) !== $properties['type']) {
-			return false;
+	// rest_do_request
+	$response = rest_do_request($request);
+
+	$msg = '';
+	
+	// check if the response has an error.
+	if ( is_wp_error( $response ) ) {
+		$msg = 'Error: ' . $response->get_error_message();
+	} else {
+		$data = json_encode( $response->get_data() );
+
+		// check if parameter(s) in request is invalid.
+		if ( $response->get_status() === 400 ) {
+			$msg = 'Invalid data: ' . $data;
+		} else {
+			$msg = 'Valid data: ' . $data;
 		}
+		
 	}
 
-	return true;
-}
-
-function validate_and_log($data, $schema) {
-	// Validate the data against the schema.
-    $is_valid = validate_against_schema($data, $schema);
-
-	// Log the data and the validation result for debugging/demo purposes.
-    $encoded_data = json_encode($data);
-    $msg = $is_valid ? 'Data is valid' : 'Data is invalid';
-    echo "<script>console.log($encoded_data, '$msg');</script>";
+    echo "<script>console.log('$msg');</script>";
 }
 
 // on init.
 add_action(
-	'init',
+	'loop_start',
 	function () {
+
+		// only run in the is_front_page and is_super_admin.
+		if ( ! is_front_page() || ! is_super_admin() ) {
+			return;
+		}
+		
 		// Get the schema for the endpoint.
-		$schema = Custom_Endpoint::prefix_get_endpoint_args();
+		$request = new WP_REST_Request('GET', '/custom-rest-api/v1/custom-endpoint');
+
+		// Invalid data
+		// remove required param limit
+		$request->set_param('type', 'missing required param limit');
+		validate_and_log($request);
 
 		// Valid data
-		$data = ['limit' => 1];
-		validate_and_log($data, $schema);
+		$request->set_param('limit', 5);
+		$request->set_param('type', 'blank');
+		validate_and_log($request);
+
 	
 		// Invalid data
-		$data = ['limit' => 'one'];
-		validate_and_log($data, $schema);
+		$request->set_param('limit', 'invalid');
+		validate_and_log($request);
 	}
 );
